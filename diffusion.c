@@ -7,13 +7,7 @@
 #include <stdlib.h>
 #include <time.h>
 
-	int
-main(
-		int argc,
-		char * argv[]
-	)
-{
-
+int main (int argc, char *argv[]) {
 
 	MPI_Init(&argc, &argv);
 
@@ -21,7 +15,7 @@ main(
 	MPI_Comm_size(MPI_COMM_WORLD, &nmb_mpi_proc);
 	MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
 
-
+	const int width, height;
 	const int bcast_root = 0;
 	float *a;
 
@@ -29,7 +23,6 @@ main(
 
 		// Parse init file with input values
 		FILE *fp = fopen("init", "r");
-		const int width, height;
 		fscanf(fp, "%d %d", &width, &height);
 
 		a = (float*) malloc(sizeof(float)*width*height);
@@ -47,10 +40,9 @@ main(
 		printf("done parsing file\n");
 	}
 
-	int rows = 100, cols = 100;
-	const int sz = rows * cols;
+	const int sz = width * height;
 	// With this expression we round the quotient up.
-	const int sz_row = rows / nmb_mpi_proc;
+	const int rows_loc = (height - 1) / nmb_mpi_proc + 1;
 
 	if ( mpi_rank != bcast_root )
 		a = malloc(sz*sizeof(float));
@@ -58,13 +50,13 @@ main(
 	int from, froms[nmb_mpi_proc];
 	int to, tos[nmb_mpi_proc];
 	if ( mpi_rank == bcast_root ) {
-		for ( int jx = 0, from = 0; jx < nmb_mpi_proc; ++jx, from += sz_row) {
+		for ( int jx = 0, from = 0; jx < nmb_mpi_proc; ++jx, from += width*rows_loc) {
 			froms[jx] = from;
-			tos[jx] = from + sz_row <= sz ? sz_row * (jx + 1) : rows - from;
+			tos[jx] = from + width*rows_loc <= sz ? from + width*rows_loc : sz;
 		}
 	}
 
-// send indices to each node
+	// send indices to each node
 	MPI_Scatter(froms, 1, MPI_INT, &from, 1, MPI_INT, bcast_root, MPI_COMM_WORLD);
 	MPI_Scatter(tos, 1, MPI_INT, &to, 1, MPI_INT, bcast_root, MPI_COMM_WORLD);
 
@@ -76,16 +68,29 @@ main(
 		printf("%f received at %d\n",a[0],mpi_rank);
 	}
 
+	// Computation here
+	for (size_t i = from; i < to; i++) {
+		float value = a[i];
+		float up = 0., down = 0., left = 0., right = 0.;
 
-// Computation here
-
+		if (i%width != 0)
+			left = a[i-1];
+			
+		if ((i+1)%width != 0)
+			right = a[i+1];
 		
+		if (i >= width)
+			up = a[i - width];
+		
+		if (i < width*(height-1))
+			down = a[i + width];
 
-
-
+		value += d * ((up+down+left+right)/4 - value);
+		c_loc[i-from] = value;
+		printf("%f\n", value);
+	}
 
 	MPI_Finalize();
-
 
 	return 0;
 }
