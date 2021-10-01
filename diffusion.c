@@ -22,46 +22,40 @@ int main (int argc, char *argv[]) {
 				break;
 		}
 	}
-/*	
-	// Parse init file with input values
-	FILE *fp = fopen("init", "r");
-	const int width, height;
-	fscanf(fp, "%d %d", &width, &height);
-
-	float *a = (float*) malloc(sizeof(float)*width*height);
-	for (size_t i = 0; i < width*height; i++)
-		a[i] = 0.;
-
-	int row, col;
-	float temp;
-	while (fscanf(fp, "%d %d %f", &col, &row, &temp) == 3) {
-		a[row * width + col] = temp;
-	}
-
-	fclose(fp);
-*/
+	
 	MPI_Init(&argc, &argv);
 
 	int nmb_mpi_proc, mpi_rank;
 	MPI_Comm_size(MPI_COMM_WORLD, &nmb_mpi_proc);
 	MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
 
-
 	int scatter_root = 1;
 	int reduce_root = 0;
-
-	const int sz = 10000000;
-	// With this expression we round the quotient up.
-	const int sz_loc = (sz - 1) / nmb_mpi_proc + 1;
+	
+	const int width, height;
 
 	// Allocate local arrays and prepare data on the scatter root.
-	double *a;
-	double *a_loc = (double*) malloc(sz_loc*sizeof(double));
+	float *a;
+	float *a_loc = (float*) malloc(width*height_loc*sizeof(float));
 	if ( mpi_rank == scatter_root ) {
-		a = malloc(sz*sizeof(double));
-		for ( int ix = 0; ix < sz; ++ix )
-			a[ix] = ix;
+		a = malloc(sizeof(float)*width*height);
+		FILE *fp = fopen("init", "r");
+		fscanf(fp, "%d %d", &width, &height);
+
+		for (size_t i = 0; i < width*height; i++)
+			a[i] = 0.;
+
+		int row, col;
+		float temp;
+		while (fscanf(fp, "%d %d %f", &col, &row, &temp) == 3) {
+			init[row * width + col] = temp;
+		}
+
+		fclose(fp);
 	}
+
+	const int width_loc = (width - 1) / nmb_mpi_proc + 1;
+	const int height_loc = (height -1) / nmb_mpi_proc + 1;
 
 	// The function scatterv requires arrays that indicate the positions and
 	// length in the scattered vector associated with each of process.
