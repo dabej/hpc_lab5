@@ -1,4 +1,4 @@
-PEN_SOURCE 700
+#define _XOPEN_SOURCE 700
 
 #include <math.h>
 #include <mpi.h>
@@ -6,6 +6,7 @@ PEN_SOURCE 700
 #include <stddef.h>
 #include <stdlib.h>
 #include <time.h>
+#include <unistd.h>
 
 int main (int argc, char *argv[]) {
 	// Argpars
@@ -21,7 +22,7 @@ int main (int argc, char *argv[]) {
 				break;
 		}
 	}
-	
+/*	
 	// Parse init file with input values
 	FILE *fp = fopen("init", "r");
 	const int width, height;
@@ -38,7 +39,7 @@ int main (int argc, char *argv[]) {
 	}
 
 	fclose(fp);
-
+*/
 	MPI_Init(&argc, &argv);
 
 	int nmb_mpi_proc, mpi_rank;
@@ -116,7 +117,7 @@ int main (int argc, char *argv[]) {
 
 
 	MPI_Finalize();
-
+/*
 	float *c = malloc(width*height* sizeof(float));
 	// average temp	
 	float sum = 0.;
@@ -137,7 +138,7 @@ int main (int argc, char *argv[]) {
 
 	free(a);
 	free(c);
-
+*/
 	return 0;
 }
 
