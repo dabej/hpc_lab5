@@ -7,12 +7,35 @@ PEN_SOURCE 700
 #include <stdlib.h>
 #include <time.h>
 
-	int
-main(
-		int argc,
-		char * argv[]
-	)
-{
+int main (int argc, char *argv[]) {
+	// Argpars
+	int opt, n;
+	float d;
+	while ((opt = getopt(argc, argv, "n:d:")) != -1) {
+		switch (opt) {
+			case 'n':
+				n = atoi(optarg);
+				break;
+			case 'd':
+				d = atof(optarg);
+				break;
+		}
+	}
+	
+	// Parse init file with input values
+	FILE *fp = fopen("init", "r");
+	const int width, height;
+	fscanf(fp, "%d %d", &width, &height);
+
+	float *a = (float*) malloc(sizeof(float)*width*height);
+	for (size_t i = 0; i < width*height; i++)
+		a[i] = 0.;
+
+	int row, col;
+	float temp;
+	while (fscanf(fp, "%d %d %f", &col, &row, &temp) == 3) {
+		a[row * width + col] = temp;
+	}
 	MPI_Init(&argc, &argv);
 
 	int nmb_mpi_proc, mpi_rank;
@@ -91,6 +114,23 @@ main(
 
 	MPI_Finalize();
 
+	float *c = malloc(width*height* sizeof(float));
+	// average temp	
+	float sum = 0.;
+	for (size_t jx=0; jx<height; ++jx)
+		for (size_t ix=0; ix<width; ++ix)
+			sum +=  c[jx*width+ ix];
+	float avg_temp = sum/(height*width);
+	printf("average: %E\n", avg_temp);
+
+
+	// the absolute difference of each temperature and the average
+	sum = 0.;
+	for (size_t jx=0; jx<height; ++jx)
+		for (size_t ix=0; ix<width; ++ix)
+			sum += fabs(c[jx*width+ ix] - avg_temp);
+	avg_temp = sum/(width*height);
+	printf("average absolute difference: %E\n", avg_temp);
 
 	return 0;
 }
