@@ -36,6 +36,9 @@ int main (int argc, char *argv[]) {
 	while (fscanf(fp, "%d %d %f", &col, &row, &temp) == 3) {
 		a[row * width + col] = temp;
 	}
+
+	fclose(fp);
+
 	MPI_Init(&argc, &argv);
 
 	int nmb_mpi_proc, mpi_rank;
@@ -131,6 +134,9 @@ int main (int argc, char *argv[]) {
 			sum += fabs(c[jx*width+ ix] - avg_temp);
 	avg_temp = sum/(width*height);
 	printf("average absolute difference: %E\n", avg_temp);
+
+	free(a);
+	free(c);
 
 	return 0;
 }
