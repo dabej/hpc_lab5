@@ -78,8 +78,6 @@ int main (int argc, char *argv[]) {
 	MPI_Bcast(&n, 1, MPI_FLOAT, bcast_root, MPI_COMM_WORLD);
 
 
-
-
 	const int sz = width * height;
 
 	// Allocate input for all other nodes
@@ -116,6 +114,7 @@ int main (int argc, char *argv[]) {
 
 	if ( mpi_rank == bcast_root )
 		timespec_get(&bench_start,TIME_UTC);	
+	
 	// n iterations of diffusion calculations
 	for (size_t ix = 0; ix < n ; ix++) {
 
@@ -144,6 +143,7 @@ int main (int argc, char *argv[]) {
 			//	printf("u,d,l and r are %f,%f,%f,%f. val=%f, at n= %d\n",up,down,left,right,value,mpi_rank);
 			output_loc[i-from] = value;
 		}
+		
 
 		// Gather results into output-array	
 		MPI_Gather(output_loc,to-from,MPI_FLOAT,output,to-from,MPI_FLOAT,bcast_root, MPI_COMM_WORLD);
@@ -176,8 +176,16 @@ int main (int argc, char *argv[]) {
 		}
 		float avg_temp = sum/(height*width);
 		printf("average: %E\n", avg_temp);
-	}
 
+
+		// the absolute difference of each temperature and the average
+		sum = 0.;
+		for (size_t jx=0; jx<height; ++jx)
+			for (size_t ix=0; ix<width; ++ix)
+				sum += fabs(input[jx*width+ ix] - avg_temp);
+		avg_temp = sum/(width*height);
+		printf("average absolute difference: %E\n", avg_temp);
+	}
 	free(input);
 
 	if ( mpi_rank == bcast_root ){
