@@ -11,6 +11,11 @@
 
 int main (int argc, char *argv[]) {
 
+	struct timespec bench_start;
+	struct timespec bench_stop;
+	double bench_diff;
+
+
 	MPI_Init(&argc, &argv);
 
 	int nmb_mpi_proc, mpi_rank;
@@ -73,8 +78,9 @@ int main (int argc, char *argv[]) {
 	MPI_Bcast(&n, 1, MPI_FLOAT, bcast_root, MPI_COMM_WORLD);
 
 
+
+
 	const int sz = width * height;
-	const int rows_loc = (height - 1) / nmb_mpi_proc + 1;
 
 	// Allocate input for all other nodes
 	if ( mpi_rank != bcast_root )
@@ -85,6 +91,7 @@ int main (int argc, char *argv[]) {
 	int from, froms[nmb_mpi_proc];
 	int to, tos[nmb_mpi_proc];
 	if ( mpi_rank == bcast_root ) {
+		int rows_loc = (height - 1) / nmb_mpi_proc + 1;
 		for ( int jx = 0, from = 0; jx < nmb_mpi_proc; ++jx, from += width*rows_loc) {
 			froms[jx] = from;
 			tos[jx] = from + width*rows_loc <= sz ? from + width*rows_loc : sz;
@@ -107,6 +114,8 @@ int main (int argc, char *argv[]) {
 	}
 
 
+	if ( mpi_rank == bcast_root )
+		timespec_get(&bench_start,TIME_UTC);	
 	// n iterations of diffusion calculations
 	for (size_t ix = 0; ix < n ; ix++) {
 
@@ -114,7 +123,27 @@ int main (int argc, char *argv[]) {
 		MPI_Bcast(input, sz, MPI_FLOAT, bcast_root, MPI_COMM_WORLD);
 
 		// Compute results
-		computation( width, height, from, to, d, mpi_rank, &input, &output_loc);
+		//computation( width, height, from, to, d, mpi_rank, &input, &output_loc);
+		for (size_t i = from; i < to; i++) {
+			float value = input[i];
+			float up = 0., down = 0., left = 0., right = 0.;
+
+			if (i%width != 0)
+				left = input[i-1];
+
+			if ((i+1)%width != 0)
+				right = input[i+1];
+
+			if (i >= width)
+				up = input[i - width];
+
+			if (i < width*(height-1))
+				down = input[i + width];
+
+			value += d * ((up+down+left+right)/4 - value);
+			//	printf("u,d,l and r are %f,%f,%f,%f. val=%f, at n= %d\n",up,down,left,right,value,mpi_rank);
+			output_loc[i-from] = value;
+		}
 
 		// Gather results into output-array	
 		MPI_Gather(output_loc,to-from,MPI_FLOAT,output,to-from,MPI_FLOAT,bcast_root, MPI_COMM_WORLD);
@@ -128,6 +157,9 @@ int main (int argc, char *argv[]) {
 
 		MPI_Barrier(MPI_COMM_WORLD); // Maybe needed for larger init files..
 	}
+
+	if ( mpi_rank == bcast_root )
+		timespec_get(&bench_stop,TIME_UTC);	
 
 	free(output);
 	free(output_loc);
@@ -148,75 +180,12 @@ int main (int argc, char *argv[]) {
 
 	free(input);
 
+	if ( mpi_rank == bcast_root ){
+		bench_diff = difftime(bench_stop.tv_sec, bench_start.tv_sec) * 1000.
+			+ (bench_stop.tv_nsec - bench_start.tv_nsec) / 1000000.;
+		printf("benchmark time: %.2fms\n",bench_diff/n);
+	}
 	MPI_Finalize();
 
 	return 0;
 }
-
-
-void computation(int width, int height, int from, int to, float d, int mpi_rank, float **input, float **output_loc){
-	for (size_t i = from; i < to; i++) {
-		float value = (*input)[i];
-		float up = 0., down = 0., left = 0., right = 0.;
-
-		if (i%width != 0)
-			left = (*input)[i-1];
-
-		if ((i+1)%width != 0)
-			right = (*input)[i+1];
-
-		if (i >= width)
-			up = (*input)[i - width];
-
-		if (i < width*(height-1))
-			down = (*input)[i + width];
-
-		value += d * ((up+down+left+right)/4 - value);
-		//	printf("u,d,l and r are %f,%f,%f,%f. val=%f, at n= %d\n",up,down,left,right,value,mpi_rank);
-		(*output_loc)[i-from] = value;
-		//printf("res is %f\n",(*output_loc)[i-from]);
-	}
-}
-/*
-   for (size_t i = from; i < to; i++) {
-   float value = input[i];
-   float up = 0., down = 0., left = 0., right = 0.;
-
-   if (i%width != 0)
-   left = input[i-1];
-
-   if ((i+1)%width != 0)
-   right = input[i+1];
-
-   if (i >= width)
-   up = input[i - width];
-
-   if (i < width*(height-1))
-   down = input[i + width];
-
-   value += d * ((up+down+left+right)/4 - value);
-//	printf("u,d,l and r are %f,%f,%f,%f. val=%f, at n= %d\n",up,down,left,right,value,mpi_rank);
-output_loc[i-from] = value;
-}
-*/
-
-
-void parseFile(float **input,int *width, int *height){
-
-	FILE *fp = fopen("init", "r");
-	fscanf(fp, "%d %d", width, height);
-
-	*input =  malloc(sizeof(float)**width**height);
-	for(int i = 0; i< *width**height; i++)
-		(*input)[i] = 0.;
-
-	int row, col;
-	float temp;
-	while (fscanf(fp, "%d %d %f", &col, &row, &temp) == 3) {
-		(*input)[row * *width + col] = temp;
-	}
-
-	fclose(fp);
-	printf("done parsing file\n");
-}
-
