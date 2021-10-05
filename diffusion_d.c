@@ -15,6 +15,7 @@ int main (int argc, char *argv[]) {
 	struct timespec bench_stop;
 	double bench_diff;
 
+
 	MPI_Init(&argc, &argv);
 
 	int nmb_mpi_proc, mpi_rank;
@@ -60,15 +61,18 @@ int main (int argc, char *argv[]) {
 		}
 
 		fclose(fp);
+		printf("done parsing file\n");
 	}
 
 	MPI_Barrier(MPI_COMM_WORLD); // Maybe needed for larger init files..
+
 
 	// Broadcast params to each node	
 	MPI_Bcast(&width, 1, MPI_INT, bcast_root, MPI_COMM_WORLD);
 	MPI_Bcast(&height, 1, MPI_INT, bcast_root, MPI_COMM_WORLD);
 	MPI_Bcast(&d, 1, MPI_FLOAT, bcast_root, MPI_COMM_WORLD);
 	MPI_Bcast(&n, 1, MPI_FLOAT, bcast_root, MPI_COMM_WORLD);
+
 
 	const int sz = width * height;
 	const int sz_padded = (width+2)*(height+2);
@@ -100,14 +104,15 @@ int main (int argc, char *argv[]) {
 
 	float *output = NULL;
 	if (mpi_rank == bcast_root){
-		output = malloc((width-2)*(height-2)*sizeof(float));
-		for (int i = 0; i < (width-2)*(height-2); i++)
+		output = malloc(sz*sizeof(float));
+		for (int i = 0; i<sz; i++)
 			output[i] = 0.;
 	}
 
 
 	// n iterations of diffusion calculations
 	for (size_t ix = 0; ix < n ; ix++) {
+
 		// Broadcast input array	
 		MPI_Bcast(input, sz_padded, MPI_FLOAT, bcast_root, MPI_COMM_WORLD);
 
@@ -177,7 +182,6 @@ int main (int argc, char *argv[]) {
 			+ (bench_stop.tv_nsec - bench_start.tv_nsec) / 1000000.;
 		printf("benchmark time: %.2fms\n",bench_diff/n);
 	}
-
 	MPI_Finalize();
 
 	return 0;
