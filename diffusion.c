@@ -76,16 +76,16 @@ int main(int argc, char * argv[]) {
 	int end_row = (mpi_rank+1) * rows + 1;
 	if (end_row >= height)
 		end_row = height - 1;
-	float *up_row, *down_row;
+	//float *up_row, *down_row;
 
 	for (size_t iter = 0; iter < n; iter++) {
 		for (size_t row = start_row; row < end_row; row++) {
-			up_row = &input[(row-1)*width];
-			down_row = &input[(row+1)*width];
+			//up_row = &input[(row-1)*width];
+			//down_row = &input[(row+1)*width];
 			for (size_t col = 1; col < width-1; col++) {
 				value = input[row*width + col];
-				up = up_row[col];
-				down = down_row[col];
+				up = input[(row-1)*width + col];
+				down = input[(row+1)*width + col];
 				left = input[row*width + col-1];
 				right = input[row*width + col+1];
 				value += d * ((up + down + left + right)/4 - value);
