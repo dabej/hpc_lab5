@@ -34,7 +34,7 @@ int main(int argc, char * argv[]) {
 			}
 		}
 
-		FILE *fp = fopen("init_100_100", "r");
+		FILE *fp = fopen("init", "r");
 		fscanf(fp, "%d %d", &width, &height);
 		width += 2;
 		height += 2;
@@ -67,35 +67,42 @@ int main(int argc, char * argv[]) {
 	float *recv_buffer = malloc(width*sizeof(float));
 	int rows = (height-3) / nmb_mpi_proc + 1;
 	float *working_buffer = malloc(width*height*sizeof(float));
+	float **matrix = malloc(height*sizeof(float*));
+	float **matrix_buffer = malloc(height*sizeof(float*));
+	for (size_t i = 0, j = 0; i < height; i++, j+=width) {
+		matrix[i] = input + j;
+		matrix_buffer[i] = working_buffer + j;
+	}
 
 	int above = mpi_rank - 1;
 	int below = mpi_rank + 1;
 	MPI_Status status;
-	float up, down, left, right, value;
-	int start_row = mpi_rank*rows + 1;
-	int end_row = (mpi_rank+1) * rows + 1;
+	size_t start_row = mpi_rank*rows + 1;
+	size_t end_row = (mpi_rank+1) * rows + 1;
 	if (end_row >= height)
 		end_row = height - 1;
-	//float *up_row, *down_row;
+	float c1 = 1 - d;
+	float c2 = d / 4;
 
 	for (size_t iter = 0; iter < n; iter++) {
 		for (size_t row = start_row; row < end_row; row++) {
-			//up_row = &input[(row-1)*width];
-			//down_row = &input[(row+1)*width];
 			for (size_t col = 1; col < width-1; col++) {
-				value = input[row*width + col];
-				up = input[(row-1)*width + col];
-				down = input[(row+1)*width + col];
-				left = input[row*width + col-1];
-				right = input[row*width + col+1];
-				value += d * ((up + down + left + right)/4 - value);
-				working_buffer[row*width + col] = value;
+				float value = matrix[row][col];
+				float up    = matrix[row-1][col];
+				float down  = matrix[row+1][col];
+				float left  = matrix[row][col-1];
+				float right = matrix[row][col+1];
+				value = value*c1 + (up + down + left + right)*c2;
+				matrix_buffer[row][col] = value;
 			}
 		}
 
-		for (size_t row = start_row; row < end_row; row++)
-			for (size_t col = 1; col < width-1; col++)
-				input[row*width + col] = working_buffer[row*width + col];
+		float *temp1 = input;
+		input = working_buffer;
+		working_buffer = temp1;
+		float **temp2 = matrix;
+		matrix = matrix_buffer;
+		matrix_buffer = temp2;
 
 		if (start_row != 1) {
 			for (size_t col = 1; col < width-1; col++)
