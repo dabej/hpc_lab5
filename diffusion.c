@@ -34,7 +34,7 @@ int main(int argc, char * argv[]) {
 			}
 		}
 
-		FILE *fp = fopen("init_100000_100", "r");
+		FILE *fp = fopen("init_100_100", "r");
 		fscanf(fp, "%d %d", &width, &height);
 		width += 2;
 		height += 2;
@@ -71,29 +71,31 @@ int main(int argc, char * argv[]) {
 	int above = mpi_rank - 1;
 	int below = mpi_rank + 1;
 	MPI_Status status;
-	size_t start_row = mpi_rank*rows + 1;
-	size_t end_row = (mpi_rank+1) * rows + 1;
+	float up, down, left, right, value;
+	int start_row = mpi_rank*rows + 1;
+	int end_row = (mpi_rank+1) * rows + 1;
 	if (end_row >= height)
 		end_row = height - 1;
-	float c = 1 - d;
-	float k = 0.25 * d;
-
-	time start = clock();
+	//float *up_row, *down_row;
 
 	for (size_t iter = 0; iter < n; iter++) {
 		for (size_t row = start_row; row < end_row; row++) {
+			//up_row = &input[(row-1)*width];
+			//down_row = &input[(row+1)*width];
 			for (size_t col = 1; col < width-1; col++) {
-				int x = row*width + col;
-				working_buffer[x] = c*input[x] + (input[x-width] + input[x+width] + 
-					input[x-1] + input[x+1])
-				value = c * value + (up + down + left + right) * k;
-				working_buffer[x] = value;
+				value = input[row*width + col];
+				up = input[(row-1)*width + col];
+				down = input[(row+1)*width + col];
+				left = input[row*width + col-1];
+				right = input[row*width + col+1];
+				value += d * ((up + down + left + right)/4 - value);
+				working_buffer[row*width + col] = value;
 			}
 		}
 
-		float *temp = input;
-		input = working_buffer;
-		working_buffer = temp;
+		for (size_t row = start_row; row < end_row; row++)
+			for (size_t col = 1; col < width-1; col++)
+				input[row*width + col] = working_buffer[row*width + col];
 
 		if (start_row != 1) {
 			for (size_t col = 1; col < width-1; col++)
@@ -159,4 +161,3 @@ int main(int argc, char * argv[]) {
 
 	return 0;
 }
-
