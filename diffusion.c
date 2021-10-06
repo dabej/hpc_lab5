@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include <unistd.h>
+#include <string.h>
 
 int main(int argc, char * argv[]) {
 	MPI_Init(&argc, &argv);
@@ -39,9 +40,8 @@ int main(int argc, char * argv[]) {
 		width += 2;
 		height += 2;
 
-		input =  malloc(sizeof(float)*width*height);
-		for(int i = 0; i < width*height; i++)
-			input[i] = 0.;
+		input = malloc(sizeof(float)*width*height);
+		memset(input, 0, width*height*sizeof(float));
 
 		int row, col;
 		float temp;
